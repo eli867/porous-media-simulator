@@ -1,5 +1,113 @@
 # Troubleshooting Guide
 
+## OpenMP Runtime Library Error: "libgomp.so.1: cannot open shared object file"
+
+This error occurs when the diffusivity simulation tries to run a CUDA executable that was compiled with OpenMP support but the runtime library is missing.
+
+### Quick Diagnosis
+
+1. **Check if the error mentions `libgomp.so.1`:**
+   ```
+   ./fluid_sim: error while loading shared libraries: libgomp.so.1: cannot open shared object file
+   ```
+
+2. **Check OpenMP library availability:**
+   ```bash
+   ldconfig -p | grep libgomp
+   ```
+
+### Solutions
+
+#### Solution 1: Install OpenMP Runtime Library
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install libgomp1
+```
+
+**CentOS/RHEL:**
+```bash
+sudo yum install libgomp
+```
+
+**Alpine Linux:**
+```bash
+apk add libgomp
+```
+
+#### Solution 2: Use Pre-compiled Binaries with Static Linking
+
+1. **Build binaries with static linking:**
+   ```bash
+   # Build diffusivity binaries
+   npm run build:diffusivity:all
+   
+   # Build permeability binaries
+   npm run build:binary:all
+   ```
+
+2. **Verify static linking:**
+   ```bash
+   ldd diffusivity_sim
+   # Should show minimal dependencies
+   ```
+
+#### Solution 3: Docker-based Solution
+
+1. **Build using Docker:**
+   ```bash
+   docker build -f Dockerfile.diffusivity -t diffusivity-builder .
+   docker run --rm -v $(pwd):/output diffusivity-builder cp /app/diffusivity_sim /output/
+   ```
+
+2. **Or use the provided Dockerfile:**
+   ```bash
+   # Build the binary
+   docker build -f Dockerfile.diffusivity -t diffusivity-builder .
+   
+   # Extract the binary
+   docker create --name temp diffusivity-builder
+   docker cp temp:/app/diffusivity_sim ./diffusivity_sim
+   docker rm temp
+   ```
+
+#### Solution 4: Environment-specific Compilation
+
+**For deployment environments that don't support OpenMP:**
+
+1. **Modify compilation flags in the API:**
+   The API now tries multiple compilation approaches:
+   - Static linking of OpenMP libraries
+   - Dynamic linking with explicit library paths
+   - Fallback to basic compilation
+
+2. **Set environment variable to disable OpenMP:**
+   ```bash
+   export OMP_NUM_THREADS=1
+   ```
+
+#### Solution 5: Alternative Compilation Methods
+
+**If CUDA compilation fails, try these approaches:**
+
+1. **Use gcc instead of nvcc for CPU-only:**
+   ```bash
+   g++ -std=c++17 -fopenmp -o diffusivity_sim main.cu -I/usr/local/cuda/include -L/usr/local/cuda/lib64 -lcudart
+   ```
+
+2. **Compile without OpenMP:**
+   ```bash
+   nvcc -std=c++17 -o diffusivity_sim main.cu
+   ```
+
+### Prevention
+
+1. **Always build binaries on the target platform**
+2. **Use static linking for deployment**
+3. **Test binaries in the deployment environment**
+4. **Include runtime libraries in deployment packages**
+
 ## JSON Parsing Error: "unexpected character at line 1 column 1"
 
 This error occurs when the API endpoint returns non-JSON content instead of the expected JSON response. This is a common issue in production deployments.
