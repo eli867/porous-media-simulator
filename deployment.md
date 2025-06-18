@@ -66,6 +66,45 @@ jobs:
         path: fluid_sim
 ```
 
+## Quick Fix for Binary Selection Issues
+
+If you encounter the error `"cannot execute binary file"` during deployment, it means the wrong binary is being selected for your platform. This has been fixed in the latest version.
+
+### Ensure Both Binaries Are Available
+
+1. **Build both binaries locally**:
+   ```bash
+   npm run build:binary:all
+   ```
+
+2. **Verify both binaries exist**:
+   ```bash
+   ls -la fluid_sim*
+   # Should show both fluid_sim.exe (Windows) and fluid_sim (Linux)
+   ```
+
+3. **Deploy again**:
+   ```bash
+   npm run build
+   # Deploy to your platform
+   ```
+
+### What Was Fixed
+
+- The binary selection logic now prioritizes platform-specific binaries
+- On Linux deployments, it will use `fluid_sim` (Linux binary)
+- On Windows deployments, it will use `fluid_sim.exe` (Windows binary)
+- Added detailed logging to help debug deployment issues
+
+### Testing Binary Detection
+
+You can test the binary detection locally:
+```bash
+node test-binary-detection.js
+```
+
+This will show which binary is selected for your current platform.
+
 ## Overview
 
 This application supports both CPU-based permeability simulation and GPU-based diffusivity simulation. The deployment strategy depends on your requirements and infrastructure.

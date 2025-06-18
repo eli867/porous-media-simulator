@@ -29,7 +29,21 @@ const execCommand = (command: string, args: string[], cwd: string): Promise<{ st
 
 // Helper function to check if pre-compiled binary exists
 const checkPrecompiledBinary = async (): Promise<{ success: boolean; error?: string; binaryPath?: string }> => {
-  // Check for both Windows and Linux binaries regardless of platform
+  const isWindows = process.platform === 'win32';
+  const expectedBinaryName = isWindows ? 'fluid_sim.exe' : 'fluid_sim';
+  
+  console.log(`Platform: ${process.platform}, Expected binary: ${expectedBinaryName}`);
+  
+  // Check for platform-specific binary first
+  const platformSpecificBinary = join(process.cwd(), expectedBinaryName);
+  if (existsSync(platformSpecificBinary)) {
+    console.log(`Found platform-specific binary: ${expectedBinaryName} at ${platformSpecificBinary}`);
+    return { success: true, binaryPath: platformSpecificBinary };
+  }
+  
+  console.log(`Platform-specific binary not found, checking fallback locations...`);
+  
+  // Fallback: check for both binaries regardless of platform
   const possibleBinaries = [
     { name: 'fluid_sim.exe', path: join(process.cwd(), 'fluid_sim.exe') },
     { name: 'fluid_sim', path: join(process.cwd(), 'fluid_sim') },
@@ -43,13 +57,15 @@ const checkPrecompiledBinary = async (): Promise<{ success: boolean; error?: str
   
   for (const binary of possibleBinaries) {
     if (existsSync(binary.path)) {
-      console.log(`Found binary: ${binary.name} at ${binary.path}`);
+      console.log(`Found fallback binary: ${binary.name} at ${binary.path}`);
       return { success: true, binaryPath: binary.path };
     }
   }
   
+  console.log('No binaries found in any expected location');
+  
   // For deployment environments, provide more specific guidance
-  const deploymentError = `Pre-compiled binary not found. Expected: fluid_sim.exe or fluid_sim in project root. Please ensure the binary is compiled for the deployment platform (Linux for serverless environments).`;
+  const deploymentError = `Pre-compiled binary not found. Expected: ${expectedBinaryName} in project root. Please ensure the binary is compiled for the deployment platform (Linux for serverless environments).`;
   
   return {
     success: false,
@@ -172,14 +188,19 @@ printMaps: 0
     const binaryName = binaryPathParts[binaryPathParts.length - 1]; // Get the actual filename
     const tempBinaryPath = join(tempDir, binaryName);
     
+    console.log(`Copying binary from ${binaryCheck.binaryPath} to ${tempBinaryPath}`);
+    
     try {
       const binaryContent = await readFile(binaryCheck.binaryPath!);
       await writeFile(tempBinaryPath, binaryContent);
       
       // Make binary executable on Unix systems
       if (process.platform !== 'win32') {
+        console.log('Making binary executable on Unix system...');
         await execCommand('chmod', ['+x', tempBinaryPath], tempDir);
       }
+      
+      console.log(`Binary copied successfully. Size: ${binaryContent.length} bytes`);
     } catch (copyError) {
       console.error('Failed to copy binary:', copyError);
       return NextResponse.json({
@@ -195,6 +216,8 @@ printMaps: 0
     const executablePath = process.platform === 'win32' 
       ? binaryName 
       : `./${binaryName}`;
+    
+    console.log(`Executing: ${executablePath} in directory: ${tempDir}`);
     const simResult = await execCommand(executablePath, [], tempDir);
     const simulationTime = (Date.now() - startTime) / 1000;
 
