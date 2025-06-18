@@ -27,38 +27,32 @@ const execCommand = (command: string, args: string[], cwd: string): Promise<{ st
   });
 };
 
-// Helper function to compile C++ code with fallback compilers
-const compileCppCode = async (tempDir: string): Promise<{ success: boolean; error?: string; executableName: string }> => {
+// Helper function to check if pre-compiled binary exists
+const checkPrecompiledBinary = async (): Promise<{ success: boolean; error?: string; binaryPath?: string }> => {
   const isWindows = process.platform === 'win32';
-  const executableName = isWindows ? 'fluid_sim.exe' : 'fluid_sim';
+  const binaryName = isWindows ? 'fluid_sim.exe' : 'fluid_sim';
+  const binaryPath = join(process.cwd(), 'bin', binaryName);
   
-  // Try different compilers with platform-specific flags
-  const compilers = isWindows ? [
-    { name: 'g++', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm'] },
-    { name: 'clang++', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm'] },
-    { name: 'gcc', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm', '-lstdc++'] }
-  ] : [
-    { name: 'g++', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm'] },
-    { name: 'clang++', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm'] },
-    { name: 'gcc', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm', '-lstdc++'] }
+  if (existsSync(binaryPath)) {
+    return { success: true, binaryPath };
+  }
+  
+  // Check alternative locations
+  const alternativePaths = [
+    join(process.cwd(), binaryName),
+    join(process.cwd(), 'public', binaryName),
+    join(process.cwd(), 'static', binaryName)
   ];
-
-  for (const compiler of compilers) {
-    try {
-      const result = await execCommand(compiler.name, compiler.args, tempDir);
-      if (result.code === 0) {
-        return { success: true, executableName };
-      }
-    } catch {
-      console.log(`Compiler ${compiler.name} not available, trying next...`);
-      continue;
+  
+  for (const path of alternativePaths) {
+    if (existsSync(path)) {
+      return { success: true, binaryPath: path };
     }
   }
-
-  return { 
-    success: false, 
-    error: 'No suitable C++ compiler found. Please install g++, clang++, or gcc with OpenMP support.',
-    executableName 
+  
+  return {
+    success: false,
+    error: `Pre-compiled binary not found. Expected: ${binaryPath} or ${binaryName} in project root. Please build the binary and place it in the correct location.`
   };
 };
 
@@ -97,6 +91,27 @@ export async function POST(request: NextRequest) {
   const tempDir = join(tmpdir(), `fluid-sim-${randomUUID()}`);
   
   try {
+    // Check for pre-compiled binary first
+    console.log('Checking for pre-compiled binary...');
+    const binaryCheck = await checkPrecompiledBinary();
+    
+    if (!binaryCheck.success) {
+      console.error('Binary check failed:', binaryCheck.error);
+      return NextResponse.json({
+        success: false,
+        error: binaryCheck.error,
+        details: {
+          recommendation: 'Please build the C++ binary and place it in the project root or bin/ directory',
+          expectedLocations: [
+            join(process.cwd(), 'bin', process.platform === 'win32' ? 'fluid_sim.exe' : 'fluid_sim'),
+            join(process.cwd(), process.platform === 'win32' ? 'fluid_sim.exe' : 'fluid_sim')
+          ]
+        }
+      }, { status: 500 });
+    }
+    
+    console.log('Pre-compiled binary found:', binaryCheck.binaryPath);
+    
     // Create temporary directory
     await mkdir(tempDir, { recursive: true });
     
@@ -151,45 +166,33 @@ printMaps: 0
     const inputTxtPath = join(tempDir, 'input.txt');
     await writeFile(inputTxtPath, inputConfig);
 
-    // Copy C++ source files to temp directory
-    const projectRoot = process.cwd();
-    const cppFiles = ['Perm2D.h', 'Perm2D.cpp', 'stb_image.h'];
+    // Copy the pre-compiled binary to temp directory
+    const binaryName = process.platform === 'win32' ? 'fluid_sim.exe' : 'fluid_sim';
+    const tempBinaryPath = join(tempDir, binaryName);
     
-    for (const cppFile of cppFiles) {
-      const srcPath = join(projectRoot, cppFile);
-      const dstPath = join(tempDir, cppFile);
+    try {
+      const binaryContent = await readFile(binaryCheck.binaryPath!);
+      await writeFile(tempBinaryPath, binaryContent);
       
-      if (existsSync(srcPath)) {
-        const content = await readFile(srcPath);
-        await writeFile(dstPath, content);
-      } else {
-        return NextResponse.json({
-          success: false,
-          error: `Missing C++ source file: ${cppFile}`
-        }, { status: 500 });
+      // Make binary executable on Unix systems
+      if (process.platform !== 'win32') {
+        await execCommand('chmod', ['+x', tempBinaryPath], tempDir);
       }
-    }
-
-    // Compile C++ code
-    console.log('Starting C++ compilation...');
-    const compileResult = await compileCppCode(tempDir);
-
-    if (!compileResult.success) {
-      console.error('Compilation failed:', compileResult.error);
+    } catch (copyError) {
+      console.error('Failed to copy binary:', copyError);
       return NextResponse.json({
         success: false,
-        error: compileResult.error
+        error: 'Failed to copy pre-compiled binary to temporary directory',
+        details: { copyError: copyError instanceof Error ? copyError.message : 'Unknown error' }
       }, { status: 500 });
     }
 
-    console.log('Compilation successful, executable:', compileResult.executableName);
-
-    // Run simulation
-    console.log('Starting simulation...');
+    // Run simulation using pre-compiled binary
+    console.log('Starting simulation with pre-compiled binary...');
     const startTime = Date.now();
     const executablePath = process.platform === 'win32' 
-      ? compileResult.executableName 
-      : `./${compileResult.executableName}`;
+      ? binaryName 
+      : `./${binaryName}`;
     const simResult = await execCommand(executablePath, [], tempDir);
     const simulationTime = (Date.now() - startTime) / 1000;
 
@@ -201,8 +204,13 @@ printMaps: 0
     if (simResult.code !== 0) {
       return NextResponse.json({
         success: false,
-        error: `Simulation failed: ${simResult.stderr}`,
-        stdout: simResult.stdout
+        error: `Simulation failed with exit code ${simResult.code}`,
+        details: {
+          stderr: simResult.stderr,
+          stdout: simResult.stdout,
+          executablePath,
+          tempDir
+        }
       }, { status: 500 });
     }
 
@@ -214,18 +222,28 @@ printMaps: 0
     try {
       csvContent = await readFile(csvPath, 'utf-8');
       results = parseCSVResults(csvContent);
-    } catch {
+    } catch (csvError) {
+      console.error('CSV read error:', csvError);
       return NextResponse.json({
         success: false,
-        error: 'Simulation output file not found',
-        stdout: simResult.stdout
+        error: 'Simulation output file not found or unreadable',
+        details: {
+          csvPath,
+          csvError: csvError instanceof Error ? csvError.message : 'Unknown error',
+          stdout: simResult.stdout,
+          stderr: simResult.stderr
+        }
       }, { status: 500 });
     }
 
     if (results.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No simulation results found'
+        error: 'No simulation results found in output file',
+        details: {
+          csvContent: csvContent.substring(0, 500), // First 500 chars for debugging
+          stdout: simResult.stdout
+        }
       }, { status: 500 });
     }
 
@@ -274,7 +292,7 @@ printMaps: 0
         },
         convergence_history: results.slice(-10) // Last 10 iterations
       },
-      message: 'Simulation completed successfully'
+      message: 'Simulation completed successfully using pre-compiled binary'
     };
 
     return NextResponse.json(responseData);
@@ -283,7 +301,11 @@ printMaps: 0
     console.error('Simulation error:', error);
     return NextResponse.json({
       success: false,
-      error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      details: {
+        errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+        stack: error instanceof Error ? error.stack : undefined
+      }
     }, { status: 500 });
   } finally {
     // Cleanup temporary directory
@@ -297,9 +319,14 @@ printMaps: 0
 
 // Health check endpoint
 export async function GET() {
+  const binaryCheck = await checkPrecompiledBinary();
+  
   return NextResponse.json({
     success: true,
     message: 'Fluid simulation API is running',
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    binary_available: binaryCheck.success,
+    binary_path: binaryCheck.binaryPath,
+    platform: process.platform
   });
 }

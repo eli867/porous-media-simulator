@@ -78,6 +78,7 @@ interface ApiResponse {
   data?: PermeabilityResults | DiffusivityResults;
   error?: string;
   message?: string;
+  details?: any;
 }
 
 export default function Dashboard() {
@@ -205,6 +206,15 @@ export default function Dashboard() {
         body: formData
       });
       
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text();
+        console.error('Non-JSON response:', textResponse);
+        setError(`Server returned non-JSON response (${response.status}): ${textResponse.substring(0, 200)}...`);
+        return;
+      }
+      
       const data: ApiResponse = await response.json();
       
       if (data.success && data.data) {
@@ -214,10 +224,29 @@ export default function Dashboard() {
           setDiffusivityResults(data.data as DiffusivityResults);
         }
       } else {
-        setError(data.error || 'Processing failed');
+        // Enhanced error display with details
+        let errorMessage = data.error || 'Processing failed';
+        
+        // Add details if available
+        if (data.details) {
+          console.error('Error details:', data.details);
+          if (typeof data.details === 'object') {
+            const details = Object.entries(data.details)
+              .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+              .join(', ');
+            errorMessage += ` (Details: ${details})`;
+          }
+        }
+        
+        setError(errorMessage);
       }
     } catch (err) {
-      setError(`Network error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error('Network error:', err);
+      if (err instanceof TypeError && err.message.includes('JSON')) {
+        setError(`JSON parsing error: The server response was not valid JSON. This usually indicates a server configuration issue or missing dependencies.`);
+      } else {
+        setError(`Network error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
     } finally {
       setIsProcessing(false);
     }
