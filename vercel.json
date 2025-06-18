@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "src/app/api/process-image/route.ts": {
+      "maxDuration": 60,
+      "runtime": "nodejs18.x"
+    }
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  }
+} 

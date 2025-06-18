@@ -1,28 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir, readFile, rm } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-// Helper function to execute shell commands
+// Configure for Vercel Node.js Runtime with extended timeout
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 60 seconds timeout
+
+// Helper function to execute shell commands with better error handling
 const execCommand = (command: string, args: string[], cwd: string): Promise<{ stdout: string; stderr: string; code: number }> => {
   return new Promise((resolve) => {
-    const process = spawn(command, args, { cwd, stdio: 'pipe' });
+    console.log(`Executing command: ${command} ${args.join(' ')} in ${cwd}`);
+    
+    const childProcess = spawn(command, args, { 
+      cwd, 
+      stdio: 'pipe',
+      env: { ...process.env, PATH: process.env.PATH }
+    });
+    
     let stdout = '';
     let stderr = '';
 
-    process.stdout.on('data', (data) => {
+    childProcess.stdout.on('data', (data: Buffer) => {
       stdout += data.toString();
     });
 
-    process.stderr.on('data', (data) => {
+    childProcess.stderr.on('data', (data: Buffer) => {
       stderr += data.toString();
     });
 
-    process.on('close', (code) => {
+    childProcess.on('close', (code: number | null) => {
+      console.log(`Command completed with exit code: ${code}`);
       resolve({ stdout, stderr, code: code || 0 });
+    });
+    
+    childProcess.on('error', (error: Error) => {
+      console.error(`Command execution error: ${error.message}`);
+      stderr += `Execution error: ${error.message}\n`;
+      resolve({ stdout, stderr, code: -1 });
     });
   });
 };
@@ -33,6 +51,7 @@ const checkPrecompiledBinary = async (): Promise<{ success: boolean; error?: str
   const expectedBinaryName = isWindows ? 'fluid_sim.exe' : 'fluid_sim';
   
   console.log(`Platform: ${process.platform}, Expected binary: ${expectedBinaryName}`);
+  console.log(`Current working directory: ${process.cwd()}`);
   
   // Check for platform-specific binary first
   const platformSpecificBinary = join(process.cwd(), expectedBinaryName);
@@ -64,8 +83,16 @@ const checkPrecompiledBinary = async (): Promise<{ success: boolean; error?: str
   
   console.log('No binaries found in any expected location');
   
+  // List all files in current directory for debugging
+  try {
+    const files = readdirSync(process.cwd());
+    console.log('Files in current directory:', files.filter((f: string) => f.includes('fluid_sim')));
+  } catch (e) {
+    console.log('Could not list directory contents:', e);
+  }
+  
   // For deployment environments, provide more specific guidance
-  const deploymentError = `Pre-compiled binary not found. Expected: ${expectedBinaryName} in project root. Please ensure the binary is compiled for the deployment platform (Linux for serverless environments).`;
+  const deploymentError = `Pre-compiled binary not found for platform ${process.platform}. Expected: ${expectedBinaryName} in project root. Please ensure the binary is compiled for the deployment platform (Linux for serverless environments).`;
   
   return {
     success: false,

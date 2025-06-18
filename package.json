@@ -10,7 +10,8 @@
     "lint": "next lint",
     "build:binary:windows": "g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim.exe -I.",
     "build:binary:linux": "g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim -I.",
-    "build:binary:all": "npm run build:binary:windows && npm run build:binary:linux"
+    "build:binary:all": "npm run build:binary:windows && npm run build:binary:linux",
+    "vercel-build": "npm run build:binary:linux && next build"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.15",
