@@ -3,10 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+<<<<<<< HEAD
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+=======
+    "dev": "next dev --turbopack",
+    "build": "npm run build:binary && next build",
+    "build:binary": "npm run build:binary:linux",
+    "build:binary:all": "npm run build:binary:windows && npm run build:binary:linux",
+>>>>>>> f357bfaa4fe929ffd9cadce3b8ed97a6fefd449c
     "build:binary:windows": "g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim.exe -I.",
     "build:binary:linux": "g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim -I.",
     "build:binary:all": "npm run build:binary:windows && npm run build:binary:linux",
