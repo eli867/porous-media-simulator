@@ -29,30 +29,31 @@ const execCommand = (command: string, args: string[], cwd: string): Promise<{ st
 
 // Helper function to check if pre-compiled binary exists
 const checkPrecompiledBinary = async (): Promise<{ success: boolean; error?: string; binaryPath?: string }> => {
-  const isWindows = process.platform === 'win32';
-  const binaryName = isWindows ? 'fluid_sim.exe' : 'fluid_sim';
-  const binaryPath = join(process.cwd(), 'bin', binaryName);
-  
-  if (existsSync(binaryPath)) {
-    return { success: true, binaryPath };
-  }
-  
-  // Check alternative locations
-  const alternativePaths = [
-    join(process.cwd(), binaryName),
-    join(process.cwd(), 'public', binaryName),
-    join(process.cwd(), 'static', binaryName)
+  // Check for both Windows and Linux binaries regardless of platform
+  const possibleBinaries = [
+    { name: 'fluid_sim.exe', path: join(process.cwd(), 'fluid_sim.exe') },
+    { name: 'fluid_sim', path: join(process.cwd(), 'fluid_sim') },
+    { name: 'fluid_sim.exe', path: join(process.cwd(), 'bin', 'fluid_sim.exe') },
+    { name: 'fluid_sim', path: join(process.cwd(), 'bin', 'fluid_sim') },
+    { name: 'fluid_sim.exe', path: join(process.cwd(), 'public', 'fluid_sim.exe') },
+    { name: 'fluid_sim', path: join(process.cwd(), 'public', 'fluid_sim') },
+    { name: 'fluid_sim.exe', path: join(process.cwd(), 'static', 'fluid_sim.exe') },
+    { name: 'fluid_sim', path: join(process.cwd(), 'static', 'fluid_sim') }
   ];
   
-  for (const path of alternativePaths) {
-    if (existsSync(path)) {
-      return { success: true, binaryPath: path };
+  for (const binary of possibleBinaries) {
+    if (existsSync(binary.path)) {
+      console.log(`Found binary: ${binary.name} at ${binary.path}`);
+      return { success: true, binaryPath: binary.path };
     }
   }
   
+  // For deployment environments, provide more specific guidance
+  const deploymentError = `Pre-compiled binary not found. Expected: fluid_sim.exe or fluid_sim in project root. Please ensure the binary is compiled for the deployment platform (Linux for serverless environments).`;
+  
   return {
     success: false,
-    error: `Pre-compiled binary not found. Expected: ${binaryPath} or ${binaryName} in project root. Please build the binary and place it in the correct location.`
+    error: deploymentError
   };
 };
 
@@ -167,7 +168,8 @@ printMaps: 0
     await writeFile(inputTxtPath, inputConfig);
 
     // Copy the pre-compiled binary to temp directory
-    const binaryName = process.platform === 'win32' ? 'fluid_sim.exe' : 'fluid_sim';
+    const binaryPathParts = binaryCheck.binaryPath!.split(/[\\/]/);
+    const binaryName = binaryPathParts[binaryPathParts.length - 1]; // Get the actual filename
     const tempBinaryPath = join(tempDir, binaryName);
     
     try {

@@ -1,5 +1,71 @@
 # Deployment Guide
 
+## ⚠️ IMPORTANT: Binary Deployment Issue
+
+**If you're getting "Pre-compiled binary not found" errors in deployment, follow these steps:**
+
+### Quick Fix for Vercel/Netlify Deployment
+
+1. **Compile Linux Binary Locally** (if you have WSL or Linux):
+   ```bash
+   # Install g++ if not already installed
+   sudo apt-get update && sudo apt-get install g++ libomp-dev
+
+   # Compile the Linux version
+   g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim -I.
+   ```
+
+2. **Or Use Docker to Compile**:
+   ```bash
+   # Create a temporary Docker container to compile
+   docker run --rm -v $(pwd):/app -w /app gcc:latest bash -c "apt-get update && apt-get install -y libomp-dev && g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim -I."
+   ```
+
+3. **Verify Both Binaries Exist**:
+   ```bash
+   ls -la fluid_sim*
+   # Should show both fluid_sim.exe (Windows) and fluid_sim (Linux)
+   ```
+
+4. **Deploy Again**:
+   ```bash
+   npm run build
+   # Deploy to your platform
+   ```
+
+### Alternative: Use GitHub Actions for Cross-Platform Build
+
+Create `.github/workflows/build.yml`:
+```yaml
+name: Build Binaries
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++ libomp-dev
+    
+    - name: Build Linux binary
+      run: g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim -I.
+    
+    - name: Upload Linux binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: fluid_sim-linux
+        path: fluid_sim
+```
+
 ## Overview
 
 This application supports both CPU-based permeability simulation and GPU-based diffusivity simulation. The deployment strategy depends on your requirements and infrastructure.

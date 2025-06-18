@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npm run build:binary && next build",
+    "build:binary": "npm run build:binary:linux",
+    "build:binary:windows": "g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim.exe -I.",
+    "build:binary:linux": "g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim -I.",
     "start": "next start",
     "lint": "next lint"
   },
