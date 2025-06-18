@@ -78,7 +78,7 @@ interface ApiResponse {
   data?: PermeabilityResults | DiffusivityResults;
   error?: string;
   message?: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 export default function Dashboard() {

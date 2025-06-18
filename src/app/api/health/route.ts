@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
+import { tmpdir } from 'os';
+import { writeFile, unlink } from 'fs/promises';
 
 // Helper function to execute shell commands
 const execCommand = (command: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> => {
@@ -24,8 +26,47 @@ const execCommand = (command: string, args: string[]): Promise<{ stdout: string;
   });
 };
 
+// Type definitions for health check
+interface CompilerInfo {
+  name: string;
+  version?: string;
+  available: boolean;
+}
+
+interface FileInfo {
+  name: string;
+  exists: boolean;
+  path: string;
+}
+
+interface HealthCheck {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  environment: {
+    node_version: string;
+    platform: string;
+    arch: string;
+    node_env: string;
+  };
+  system: {
+    cwd: string;
+    temp_dir: string;
+    memory_usage: NodeJS.MemoryUsage;
+    uptime: number;
+  };
+  requirements: {
+    cpp_compilers: CompilerInfo[];
+    required_files: FileInfo[];
+    file_system: {
+      writable: boolean;
+      temp_writable: boolean;
+    };
+  };
+  errors: string[];
+}
+
 export async function GET() {
-  const healthCheck = {
+  const healthCheck: HealthCheck = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     environment: {
@@ -36,7 +77,7 @@ export async function GET() {
     },
     system: {
       cwd: process.cwd(),
-      temp_dir: require('os').tmpdir(),
+      temp_dir: tmpdir(),
       memory_usage: process.memoryUsage(),
       uptime: process.uptime()
     },
@@ -89,9 +130,9 @@ export async function GET() {
 
     // Check file system permissions
     try {
-      const fs = require('fs').promises;
-      await fs.writeFile(join(require('os').tmpdir(), 'health-check-test.txt'), 'test');
-      await fs.unlink(join(require('os').tmpdir(), 'health-check-test.txt'));
+      const testFile = join(tmpdir(), 'health-check-test.txt');
+      await writeFile(testFile, 'test');
+      await unlink(testFile);
       healthCheck.requirements.file_system.temp_writable = true;
     } catch (error) {
       healthCheck.requirements.file_system.temp_writable = false;
@@ -99,9 +140,9 @@ export async function GET() {
     }
 
     try {
-      const fs = require('fs').promises;
-      await fs.writeFile(join(projectRoot, 'health-check-test.txt'), 'test');
-      await fs.unlink(join(projectRoot, 'health-check-test.txt'));
+      const testFile = join(projectRoot, 'health-check-test.txt');
+      await writeFile(testFile, 'test');
+      await unlink(testFile);
       healthCheck.requirements.file_system.writable = true;
     } catch (error) {
       healthCheck.requirements.file_system.writable = false;
