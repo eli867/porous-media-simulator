@@ -1,30 +1,194 @@
-# Fluid Permeability Simulator - Next.js Project
+# Fluid & Diffusion Simulator
 
-## Overview
-
-This is a complete Next.js application that integrates C++ computational fluid dynamics with a modern React frontend. The application allows users to upload grayscale images representing porous media structures and receive detailed permeability analysis results.
+A comprehensive web application for simulating fluid permeability and effective diffusivity in porous media using advanced numerical methods.
 
 ## Features
 
-### ✅ Complete Next.js Integration
-- **Frontend**: Modern React interface with Tailwind CSS and Shadcn UI
-- **Backend**: Next.js API routes that compile and execute C++ code
-- **Real-time Processing**: Image upload, C++ compilation, and simulation execution
-- **Professional UI**: Responsive design with comprehensive results display
+### Fluid Permeability Simulation
+- **Finite Volume Method (FVM)** implementation for fluid flow simulation
+- **Multi-threaded CPU computation** using OpenMP
+- **Convergence tracking** with detailed iteration history
+- **Porosity calculation** from image analysis
+- **Configurable parameters**: density, viscosity, domain size, mesh amplification
 
-### ✅ Technical Capabilities
-- Image upload and automatic processing
-- C++ code compilation on-demand using g++
-- Fluid dynamics simulation with convergence tracking
-- Comprehensive results with multiple visualization tabs
-- Error handling and validation
-- Temporary file management and cleanup
+### Effective Diffusivity Simulation
+- **CUDA-based GPU acceleration** for high-performance computation
+- **Finite Volume Method (FVM)** for diffusion simulation
+- **Multi-phase diffusion** support with configurable coefficients
+- **Tortuosity calculation** for porous media characterization
+- **Steady-state and transient** simulation modes
+- **2D and 3D** simulation support
 
-### ✅ Production Ready
-- TypeScript implementation with proper type safety
-- ESLint configuration for code quality
-- Production build optimization
-- Standalone deployment capability
+## Prerequisites
+
+### For Fluid Permeability (CPU-based)
+- **C++ compiler** with OpenMP support:
+  - Windows: Visual Studio, MinGW-w64, or MSYS2
+  - Linux: GCC 4.9+ or Clang 3.8+
+  - macOS: Xcode Command Line Tools
+
+### For Effective Diffusivity (GPU-based)
+- **NVIDIA GPU** with Compute Capability >= 8.6
+- **CUDA Toolkit** >= 11.5
+- **nvcc compiler** (included with CUDA Toolkit)
+- **C++17** or newer support
+
+## Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd fluid-permeability-simulator
+   ```
+
+2. **Install Node.js dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Install CUDA Toolkit** (for diffusivity simulation):
+   - Download from [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-downloads)
+   - Follow installation instructions for your platform
+   - Ensure `nvcc` is available in your PATH
+
+4. **Verify CUDA installation**:
+   ```bash
+   nvcc --version
+   ```
+
+## Usage
+
+1. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
+
+2. **Open your browser** and navigate to `http://localhost:3000`
+
+3. **Upload an image** representing porous media structure:
+   - Grayscale images work best
+   - Supported formats: PNG, JPG, BMP
+   - Higher resolution provides better accuracy
+
+4. **Choose simulation type**:
+   - **Permeability**: For fluid flow analysis
+   - **Diffusivity**: For diffusion and mass transport analysis
+
+5. **Configure parameters** based on your physical system
+
+6. **Run simulation** and view results
+
+## API Endpoints
+
+### Fluid Permeability
+- **POST** `/api/process-image`
+- Processes images for fluid permeability simulation
+- Returns permeability, porosity, convergence data
+
+### Effective Diffusivity
+- **POST** `/api/process-diffusivity`
+- Processes images for effective diffusivity simulation
+- Returns diffusivity, tortuosity, porosity data
+
+## Input Parameters
+
+### Permeability Parameters
+- `density`: Fluid density (kg/m³)
+- `viscosity`: Fluid viscosity (Pa·s)
+- `domain_width`: Physical domain size (m)
+- `mesh_amp`: Mesh amplification factor
+- `max_iter`: Maximum iterations
+- `convergence_rms`: Convergence criteria
+- `n_cores`: Number of CPU cores
+
+### Diffusivity Parameters
+- `nD`: Number of dimensions (2 or 3)
+- `D1`, `D2`, `D3`: Diffusion coefficients (m²/s)
+- `D_TH1`, `D_TH2`, `D_TH3`: Gray level thresholds
+- `convergence`: Convergence criteria
+- `maxIter`: Maximum iterations
+- `CL`, `CR`: Boundary conditions
+- `nThreads`: Number of CPU threads
+- `useGPU`: Enable GPU acceleration (0/1)
+
+## Output Results
+
+### Permeability Results
+- **Permeability**: Effective permeability (m²)
+- **Porosity**: Volume fraction of pore space (%)
+- **Iterations**: Number of iterations to convergence
+- **Convergence RMS**: Final residual error
+- **Convergence History**: Detailed iteration data
+
+### Diffusivity Results
+- **Effective Diffusivity**: Effective diffusion coefficient (m²/s)
+- **Tortuosity**: Geometric tortuosity factor
+- **Porosity**: Volume fraction of pore space (%)
+- **Iterations**: Number of iterations to convergence
+
+## Technical Details
+
+### Fluid Permeability Algorithm
+- **Solver**: Finite Volume Method with SIMPLE algorithm
+- **Discretization**: Second-order upwind scheme
+- **Convergence**: RMS residual-based convergence criteria
+- **Parallelization**: OpenMP multi-threading
+
+### Effective Diffusivity Algorithm
+- **Solver**: Finite Volume Method with GPU acceleration
+- **Discretization**: Central difference scheme
+- **Convergence**: Iterative solver with relaxation
+- **Parallelization**: CUDA GPU kernels
+
+## Troubleshooting
+
+### CUDA Compilation Issues
+1. **Verify CUDA installation**:
+   ```bash
+   nvcc --version
+   ```
+
+2. **Check GPU compatibility**:
+   ```bash
+   nvidia-smi
+   ```
+
+3. **Update CUDA drivers** if needed
+
+### Compilation Errors
+1. **Install required compilers**:
+   - Windows: Visual Studio Build Tools
+   - Linux: `sudo apt-get install build-essential`
+   - macOS: `xcode-select --install`
+
+2. **Check OpenMP support**:
+   - Windows: Use compatible compiler
+   - Linux: `sudo apt-get install libomp-dev`
+   - macOS: OpenMP included with Xcode
+
+### Performance Issues
+1. **Reduce image resolution** for faster computation
+2. **Adjust convergence criteria** for balance of speed/accuracy
+3. **Use GPU acceleration** for diffusivity simulations
+4. **Optimize CPU core usage** for permeability simulations
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- **Fluid Permeability**: Based on finite volume methods for porous media
+- **Effective Diffusivity**: Based on the EffectiveDiffusivityFVM project by Andre Adam and Dr. Xianglin Li
+- **UI Components**: Built with Next.js, React, and shadcn/ui
 
 ## Project Structure
 
@@ -115,12 +279,6 @@ Main endpoint for image processing and fluid simulation.
 ```
 
 ## Installation and Setup
-
-### Prerequisites
-- Node.js 20+ 
-- npm or pnpm
-- Build tools (gcc, g++, make) for C++ compilation
-- Ubuntu 22.04 or compatible Linux distribution
 
 ### Development Setup
 

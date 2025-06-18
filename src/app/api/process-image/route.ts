@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, readFile } from 'fs/promises';
+import { writeFile, mkdir, readFile, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
@@ -25,6 +25,41 @@ const execCommand = (command: string, args: string[], cwd: string): Promise<{ st
       resolve({ stdout, stderr, code: code || 0 });
     });
   });
+};
+
+// Helper function to compile C++ code with fallback compilers
+const compileCppCode = async (tempDir: string): Promise<{ success: boolean; error?: string; executableName: string }> => {
+  const isWindows = process.platform === 'win32';
+  const executableName = isWindows ? 'fluid_sim.exe' : 'fluid_sim';
+  
+  // Try different compilers with platform-specific flags
+  const compilers = isWindows ? [
+    { name: 'g++', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm'] },
+    { name: 'clang++', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm'] },
+    { name: 'gcc', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm', '-lstdc++'] }
+  ] : [
+    { name: 'g++', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm'] },
+    { name: 'clang++', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm'] },
+    { name: 'gcc', args: ['-O3', '-fopenmp', '-o', executableName, 'Perm2D.cpp', '-lm', '-lstdc++'] }
+  ];
+
+  for (const compiler of compilers) {
+    try {
+      const result = await execCommand(compiler.name, compiler.args, tempDir);
+      if (result.code === 0) {
+        return { success: true, executableName };
+      }
+    } catch (error) {
+      console.log(`Compiler ${compiler.name} not available, trying next...`);
+      continue;
+    }
+  }
+
+  return { 
+    success: false, 
+    error: 'No suitable C++ compiler found. Please install g++, clang++, or gcc with OpenMP support.',
+    executableName 
+  };
 };
 
 // Helper function to parse CSV results
@@ -85,14 +120,14 @@ export async function POST(request: NextRequest) {
     const convergenceRms = parseFloat(formData.get('convergence_rms') as string) || 1e-6;
     const nCores = parseInt(formData.get('n_cores') as string) || 4;
 
-    // Process image to grayscale - bypass Sharp and use direct file copy for already grayscale images
+    // Process image - save directly as PNG for C++ code to handle
     const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
     
-    // For now, let's try a different approach - save the original and let the C++ code handle it
+    // Save the image directly - the C++ code will handle grayscale conversion
     const imagePath = join(tempDir, 'input_image.png');
     await writeFile(imagePath, imageBuffer);
     
-    // Get basic image info (we'll assume dimensions for now)
+    // Get basic image info (we'll let the C++ code determine actual dimensions)
     const info = { width: 256, height: 256, channels: 1 };
 
     // Create input configuration file
@@ -136,21 +171,32 @@ printMaps: 0
     }
 
     // Compile C++ code
-    const compileResult = await execCommand('g++', [
-      '-O3', '-fopenmp', '-o', 'fluid_sim', 'Perm2D.cpp', '-lm'
-    ], tempDir);
+    console.log('Starting C++ compilation...');
+    const compileResult = await compileCppCode(tempDir);
 
-    if (compileResult.code !== 0) {
+    if (!compileResult.success) {
+      console.error('Compilation failed:', compileResult.error);
       return NextResponse.json({
         success: false,
-        error: `Compilation failed: ${compileResult.stderr}`
+        error: compileResult.error
       }, { status: 500 });
     }
 
+    console.log('Compilation successful, executable:', compileResult.executableName);
+
     // Run simulation
+    console.log('Starting simulation...');
     const startTime = Date.now();
-    const simResult = await execCommand('./fluid_sim', [], tempDir);
+    const executablePath = process.platform === 'win32' 
+      ? compileResult.executableName 
+      : `./${compileResult.executableName}`;
+    const simResult = await execCommand(executablePath, [], tempDir);
     const simulationTime = (Date.now() - startTime) / 1000;
+
+    console.log('Simulation completed, exit code:', simResult.code);
+    if (simResult.stderr) {
+      console.log('Simulation stderr:', simResult.stderr);
+    }
 
     if (simResult.code !== 0) {
       return NextResponse.json({
@@ -193,6 +239,16 @@ printMaps: 0
       porosity = parseFloat(porosityMatch[1]);
     }
 
+    // Parse image dimensions from stdout
+    let actualWidth = info.width;
+    let actualHeight = info.height;
+    const widthMatch = simResult.stdout.match(/Width \(pixels\) = (\d+)/);
+    const heightMatch = simResult.stdout.match(/Height \(pixels\) = (\d+)/);
+    if (widthMatch && heightMatch) {
+      actualWidth = parseInt(widthMatch[1]);
+      actualHeight = parseInt(heightMatch[1]);
+    }
+
     // Prepare response
     const responseData = {
       success: true,
@@ -203,9 +259,9 @@ printMaps: 0
         convergence_rms: finalResult.residual,
         simulation_time: simulationTime,
         image_properties: {
-          width: info.width,
-          height: info.height,
-          channels: info.channels
+          width: actualWidth,
+          height: actualHeight,
+          channels: 1
         },
         simulation_parameters: {
           density,
@@ -232,9 +288,7 @@ printMaps: 0
   } finally {
     // Cleanup temporary directory
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const childProcess = require('child_process');
-      childProcess.spawn('rm', ['-rf', tempDir], { detached: true });
+      await rm(tempDir, { recursive: true, force: true });
     } catch (cleanupError) {
       console.error('Cleanup error:', cleanupError);
     }
@@ -249,4 +303,3 @@ export async function GET() {
     timestamp: Date.now()
   });
 }
-

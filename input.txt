@@ -3,9 +3,11 @@ Visc: 0.001
 DomainWidth: 1.0
 DomainHeight: 1.0
 MeshAmp: 1
-MaxIterGlobal: 100
-ResidualConv: 0.000001
-nCores: 4
+MaxIterGlobal: 10
+MaxIterSolver: 1000
+ResidualConv: 0.001
+SolverConv: 0.000001
+nCores: 1
 InputName: test_porous_media_gray.png
 OutputName: test_output.csv
 PL: 1.0
