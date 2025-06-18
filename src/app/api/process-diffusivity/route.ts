@@ -32,7 +32,7 @@ const checkCudaAvailability = async (): Promise<{ available: boolean; error?: st
   try {
     const result = await execCommand('nvcc', ['--version'], process.cwd());
     return { available: result.code === 0 };
-  } catch (error) {
+  } catch {
     return { 
       available: false, 
       error: 'CUDA compiler (nvcc) not found. Please install NVIDIA CUDA Toolkit.' 
@@ -68,7 +68,7 @@ const compileCudaCode = async (tempDir: string): Promise<{ success: boolean; err
       if (result.code === 0) {
         return { success: true, executableName };
       }
-    } catch (error) {
+    } catch {
       console.log(`Compiler ${compiler.name} not available, trying next...`);
       continue;
     }

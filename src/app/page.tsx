@@ -1,9 +1,9 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { ArrowRight, Zap, BarChart3, Upload, Settings, CheckCircle, Globe, Cpu, Gauge } from 'lucide-react';
+import { ArrowRight, Zap, BarChart3, Upload, Settings, CheckCircle, Cpu, Gauge } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LandingPage() {

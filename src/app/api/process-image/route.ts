@@ -49,7 +49,7 @@ const compileCppCode = async (tempDir: string): Promise<{ success: boolean; erro
       if (result.code === 0) {
         return { success: true, executableName };
       }
-    } catch (error) {
+    } catch {
       console.log(`Compiler ${compiler.name} not available, trying next...`);
       continue;
     }

@@ -133,7 +133,7 @@ export default function Dashboard() {
         const response = await fetch('/api/process-diffusivity', { method: 'GET' });
         const data = await response.json();
         setGpuAvailable(data.gpu_available || false);
-      } catch (error) {
+      } catch {
         console.log('GPU check failed, assuming unavailable');
         setGpuAvailable(false);
       }
