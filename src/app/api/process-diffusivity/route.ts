@@ -27,6 +27,29 @@ const execCommand = (command: string, args: string[], cwd: string): Promise<{ st
   });
 };
 
+// Helper function to check for pre-compiled diffusivity binary
+const findPrecompiledBinary = (): string | null => {
+  const isWindows = process.platform === 'win32';
+  const binaryName = isWindows ? 'diffusivity_sim.exe' : 'diffusivity_sim';
+  
+  // Check common locations for pre-compiled binary
+  const possiblePaths = [
+    join(process.cwd(), binaryName),
+    join(process.cwd(), 'bin', binaryName),
+    join(process.cwd(), 'public', binaryName),
+    join(process.cwd(), 'static', binaryName)
+  ];
+  
+  for (const path of possiblePaths) {
+    if (existsSync(path)) {
+      console.log(`Found pre-compiled binary at: ${path}`);
+      return path;
+    }
+  }
+  
+  return null;
+};
+
 // Helper function to check if CUDA is available
 const checkCudaAvailability = async (): Promise<{ available: boolean; error?: string }> => {
   try {
@@ -55,8 +78,13 @@ const compileCudaCode = async (tempDir: string): Promise<{ success: boolean; err
     };
   }
   
-  // Try different CUDA compilation approaches
+  // Try different CUDA compilation approaches with static linking for OpenMP
   const compilers = [
+    // Try with static linking of OpenMP
+    { name: 'nvcc', args: ['-std=c++17', '-Xcompiler', '-fopenmp', '-Xlinker', '-static-libgcc', '-Xlinker', '-static-libstdc++', '-o', executableName, 'main.cu'] },
+    // Try with dynamic linking but include OpenMP path
+    { name: 'nvcc', args: ['-std=c++17', '-Xcompiler', '-fopenmp', '-L/usr/lib/x86_64-linux-gnu', '-lgomp', '-o', executableName, 'main.cu'] },
+    // Fallback to basic compilation
     { name: 'nvcc', args: ['-std=c++17', '-Xcompiler', '-openmp', '-o', executableName, 'main.cu'] },
     { name: 'nvcc', args: ['-Xcompiler', '-openmp', '-o', executableName, 'main.cu'] },
     { name: 'nvcc', args: ['-std=c++17', '-o', executableName, 'main.cu'] }
@@ -64,11 +92,15 @@ const compileCudaCode = async (tempDir: string): Promise<{ success: boolean; err
 
   for (const compiler of compilers) {
     try {
+      console.log(`Trying compiler: ${compiler.name} ${compiler.args.join(' ')}`);
       const result = await execCommand(compiler.name, compiler.args, tempDir);
       if (result.code === 0) {
+        console.log(`Compilation successful with ${compiler.name}`);
         return { success: true, executableName };
+      } else {
+        console.log(`Compilation failed with ${compiler.name}:`, result.stderr);
       }
-    } catch {
+    } catch (error) {
       console.log(`Compiler ${compiler.name} not available, trying next...`);
       continue;
     }
@@ -199,45 +231,58 @@ InitCmap: CMAP_00090.csv
     const inputTxtPath = join(tempDir, 'input.txt');
     await writeFile(inputTxtPath, inputConfig);
 
-    // Copy CUDA source files to temp directory
-    const projectRoot = process.cwd();
-    const cudaFiles = ['main.cu', 'helper.cuh', 'stb_image.h'];
-    
-    for (const cudaFile of cudaFiles) {
-      const srcPath = join(projectRoot, cudaFile);
-      const dstPath = join(tempDir, cudaFile);
+    // First check for pre-compiled binary
+    const precompiledBinary = findPrecompiledBinary();
+    let executablePath: string;
+    let executableName: string;
+
+    if (precompiledBinary) {
+      // Use pre-compiled binary
+      console.log('Using pre-compiled binary:', precompiledBinary);
+      executablePath = precompiledBinary;
+      executableName = process.platform === 'win32' ? 'diffusivity_sim.exe' : 'diffusivity_sim';
+    } else {
+      // Copy CUDA source files to temp directory
+      const projectRoot = process.cwd();
+      const cudaFiles = ['main.cu', 'helper.cuh', 'stb_image.h'];
       
-      if (existsSync(srcPath)) {
-        const content = await readFile(srcPath);
-        await writeFile(dstPath, content);
-      } else {
+      for (const cudaFile of cudaFiles) {
+        const srcPath = join(projectRoot, cudaFile);
+        const dstPath = join(tempDir, cudaFile);
+        
+        if (existsSync(srcPath)) {
+          const content = await readFile(srcPath);
+          await writeFile(dstPath, content);
+        } else {
+          return NextResponse.json({
+            success: false,
+            error: `Missing CUDA source file: ${cudaFile}`
+          }, { status: 500 });
+        }
+      }
+
+      // Compile CUDA code
+      console.log('Starting CUDA compilation...');
+      const compileResult = await compileCudaCode(tempDir);
+
+      if (!compileResult.success) {
+        console.error('Compilation failed:', compileResult.error);
         return NextResponse.json({
           success: false,
-          error: `Missing CUDA source file: ${cudaFile}`
+          error: compileResult.error
         }, { status: 500 });
       }
+
+      console.log('Compilation successful, executable:', compileResult.executableName);
+      executablePath = process.platform === 'win32' 
+        ? compileResult.executableName 
+        : `./${compileResult.executableName}`;
+      executableName = compileResult.executableName;
     }
-
-    // Compile CUDA code
-    console.log('Starting CUDA compilation...');
-    const compileResult = await compileCudaCode(tempDir);
-
-    if (!compileResult.success) {
-      console.error('Compilation failed:', compileResult.error);
-      return NextResponse.json({
-        success: false,
-        error: compileResult.error
-      }, { status: 500 });
-    }
-
-    console.log('Compilation successful, executable:', compileResult.executableName);
 
     // Run simulation
     console.log('Starting diffusivity simulation...');
     const startTime = Date.now();
-    const executablePath = process.platform === 'win32' 
-      ? compileResult.executableName 
-      : `./${compileResult.executableName}`;
     const simResult = await execCommand(executablePath, [], tempDir);
     const simulationTime = (Date.now() - startTime) / 1000;
 

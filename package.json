@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "npm run build:binary && next build",
-    "build:binary": "npm run build:binary:linux",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "build:binary:windows": "g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim.exe -I.",
     "build:binary:linux": "g++ -O3 -std=c++17 -fopenmp Perm2D.cpp -o fluid_sim -I.",
-    "start": "next start",
-    "lint": "next lint"
+    "build:binary:all": "npm run build:binary:windows && npm run build:binary:linux",
+    "build:diffusivity:windows": "nvcc -std=c++17 -Xcompiler -fopenmp -Xlinker -static-libgcc -Xlinker -static-libstdc++ -o diffusivity_sim.exe main.cu",
+    "build:diffusivity:linux": "nvcc -std=c++17 -Xcompiler -fopenmp -Xlinker -static-libgcc -Xlinker -static-libstdc++ -o diffusivity_sim main.cu",
+    "build:diffusivity:all": "npm run build:diffusivity:windows && npm run build:diffusivity:linux",
+    "build:all": "npm run build:binary:all && npm run build:diffusivity:all"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.15",
