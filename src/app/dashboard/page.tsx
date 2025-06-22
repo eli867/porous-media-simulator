@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,39 +10,20 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Upload, Play, AlertCircle, CheckCircle, Settings, BarChart3 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-
-interface PermeabilityResults {
-  permeability: number;
-  porosity: number | null;
-  iterations: number;
-  convergence_rms: number;
-  simulation_time: number;
-  image_properties: {
-    width: number;
-    height: number;
-    channels: number;
-  };
-  simulation_parameters: {
-    density: number;
-    viscosity: number;
-    domain_width: number;
-    mesh_amplification: number;
-    max_iterations: number;
-    convergence_criteria: number;
-    cpu_cores: number;
-  };
-  convergence_history: Array<{
-    iteration: number;
-    permeability: number;
-    residual: number;
-    alpha: number;
-    mesh: number;
-  }>;
-}
+import { API_CONFIG, APP_CONFIG } from '@/lib/config';
 
 interface ApiResponse {
   success: boolean;
-  data?: PermeabilityResults;
+  data?: {
+    raw_csv?: string;
+    fullData?: Array<Record<string, string | number>>;
+    summary?: {
+      permeability: number;
+      continuityRMS: number;
+      porosity: number;
+      iterations: number;
+    };
+  };
   error?: string;
   message?: string;
   details?: Record<string, unknown>;
@@ -51,19 +33,18 @@ export default function Dashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [permeabilityResults, setPermeabilityResults] = useState<PermeabilityResults | null>(null);
+  const [rawCSV, setRawCSV] = useState<string | null>(null);
+  const [fullData, setFullData] = useState<Array<Record<string, string | number>> | null>(null);
+  const [summary, setSummary] = useState<{
+    permeability: number;
+    continuityRMS: number;
+    porosity: number;
+    iterations: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   // Permeability parameters
-  const [permeabilityParams, setPermeabilityParams] = useState({
-    density: 1000.0,
-    viscosity: 0.001,
-    domain_width: 1.0,
-    mesh_amp: 1,
-    max_iter: 10000,
-    convergence_rms: 0.000001,
-    n_cores: 4
-  });
+  const [permeabilityParams, setPermeabilityParams] = useState(APP_CONFIG.DEFAULT_PARAMS);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -72,7 +53,7 @@ export default function Dashboard() {
     if (file) {
       setSelectedFile(file);
       setError(null);
-      setPermeabilityResults(null);
+      setRawCSV(null);
       
       // Create preview URL
       const reader = new FileReader();
@@ -98,7 +79,9 @@ export default function Dashboard() {
     
     setIsProcessing(true);
     setError(null);
-    setPermeabilityResults(null);
+    setRawCSV(null);
+    setFullData(null);
+    setSummary(null);
     
     const formData = new FormData();
     formData.append('image', selectedFile);
@@ -109,7 +92,8 @@ export default function Dashboard() {
     });
     
     try {
-      const response = await fetch('/api/process-image', {
+      // Use the Railway backend URL
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PROCESS_IMAGE}`, {
         method: 'POST',
         body: formData,
       });
@@ -117,11 +101,13 @@ export default function Dashboard() {
       const data: ApiResponse = await response.json();
       
       if (data.success && data.data) {
-        setPermeabilityResults(data.data as PermeabilityResults);
+        if (data.data.raw_csv) setRawCSV(data.data.raw_csv);
+        if (data.data.fullData) setFullData(data.data.fullData);
+        if (data.data.summary) setSummary(data.data.summary);
       } else {
         setError(data.error || 'Simulation failed');
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setError('Network error occurred');
       console.error('Error:', err);
     } finally {
@@ -137,7 +123,9 @@ export default function Dashboard() {
   const handleReset = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
-    setPermeabilityResults(null);
+    setRawCSV(null);
+    setFullData(null);
+    setSummary(null);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -198,10 +186,13 @@ export default function Dashboard() {
                 
                 {previewUrl && (
                   <div className="mt-4">
-                    <img
+                    <Image
                       src={previewUrl}
                       alt="Preview"
+                      width={400}
+                      height={300}
                       className="max-w-full h-auto rounded-lg border"
+                      style={{ objectFit: 'contain' }}
                     />
                   </div>
                 )}
@@ -348,108 +339,73 @@ export default function Dashboard() {
               </Alert>
             )}
 
-            {/* Results Display */}
-            {permeabilityResults && (
+            {/* Results Summary Display */}
+            {summary && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                    Simulation Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div><strong>Permeability:</strong> {formatNumber(summary.permeability)}</div>
+                    <div><strong>Porosity:</strong> {formatNumber(summary.porosity)}</div>
+                    <div><strong>Continuity RMS:</strong> {formatNumber(summary.continuityRMS)}</div>
+                    <div><strong>Iterations:</strong> {summary.iterations}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Results Table Display */}
+            {fullData && fullData.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <CheckCircle className="h-5 w-5 text-green-600" />
-                    Permeability Results
+                    Simulation Iteration Data
                   </CardTitle>
-                  <CardDescription>
-                    Completed in {permeabilityResults.simulation_time?.toFixed(2)} seconds
-                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Main Results */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                      <h3 className="font-semibold text-blue-900 dark:text-blue-100">Permeability</h3>
-                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                        {formatNumber(permeabilityResults.permeability, 3)} m²
-                      </p>
-                    </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                      <h3 className="font-semibold text-green-900 dark:text-green-100">Porosity</h3>
-                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                        {permeabilityResults.porosity ? (permeabilityResults.porosity * 100).toFixed(2) : 'N/A'}%
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Simulation Details */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Simulation Details</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Iterations</p>
-                        <p className="font-medium">{permeabilityResults.iterations}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Convergence RMS</p>
-                        <p className="font-medium">{formatNumber(permeabilityResults.convergence_rms, 6)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Image Dimensions</p>
-                        <p className="font-medium">{permeabilityResults.image_properties?.width} × {permeabilityResults.image_properties?.height} pixels</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Channels</p>
-                        <p className="font-medium">{permeabilityResults.image_properties?.channels}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Parameters Used */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Parameters Used</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Fluid Density</p>
-                        <p className="font-medium">{permeabilityResults.simulation_parameters?.density} kg/m³</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Viscosity</p>
-                        <p className="font-medium">{permeabilityResults.simulation_parameters?.viscosity} Pa·s</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Domain Width</p>
-                        <p className="font-medium">{permeabilityResults.simulation_parameters?.domain_width} m</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Mesh Amplification</p>
-                        <p className="font-medium">{permeabilityResults.simulation_parameters?.mesh_amplification}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">Max Iterations</p>
-                        <p className="font-medium">{permeabilityResults.simulation_parameters?.max_iterations}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 dark:text-gray-400">CPU Cores</p>
-                        <p className="font-medium">{permeabilityResults.simulation_parameters?.cpu_cores}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Convergence History Chart */}
-                  {permeabilityResults.convergence_history && permeabilityResults.convergence_history.length > 0 && (
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5" />
-                        Convergence History
-                      </h3>
-                      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                        <div className="space-y-2">
-                          {permeabilityResults.convergence_history.slice(-5).map((entry, index) => (
-                            <div key={index} className="flex justify-between text-sm">
-                              <span>Iteration {entry.iteration}:</span>
-                              <span className="font-medium">{formatNumber(entry.permeability, 3)} m²</span>
-                            </div>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-xs border">
+                      <thead>
+                        <tr>
+                          {Object.keys(fullData[0]).map((key) => (
+                            <th key={key} className="px-2 py-1 border-b bg-gray-50 dark:bg-gray-800">{key}</th>
                           ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fullData.map((row, i) => (
+                          <tr key={i}>
+                            {Object.values(row).map((val, j) => (
+                              <td key={j} className="px-2 py-1 border-b text-center">{typeof val === 'number' ? formatNumber(val, 4) : val}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Results Raw CSV Display (optional, for backward compatibility) */}
+            {rawCSV && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Simulation Results (Raw CSV)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs">
+                    {rawCSV}
+                  </pre>
                 </CardContent>
               </Card>
             )}

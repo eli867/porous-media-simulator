@@ -55,6 +55,34 @@ A comprehensive web application for simulating fluid permeability in porous medi
 
 5. **Run simulation** and view results
 
+## Deployment
+
+### Backend Deployment (Railway)
+
+The backend is deployed on Railway at: `https://porous-media-predictor-production.up.railway.app`
+
+**API Endpoints:**
+- **Health Check**: `GET /api/health`
+- **Process Image**: `POST /api/process-image`
+
+### Frontend Configuration
+
+The frontend is configured to use the Railway backend by default. To customize the API URL:
+
+1. **Create a `.env.local` file** in the project root:
+   ```bash
+   NEXT_PUBLIC_API_URL=https://your-custom-backend-url.com
+   ```
+
+2. **Or modify `src/lib/config.ts`** to change the default URL.
+
+### Testing Backend Connection
+
+Run the test script to verify the Railway backend is accessible:
+```bash
+node test-railway-backend.js
+```
+
 ## API Endpoints
 
 ### Fluid Permeability
