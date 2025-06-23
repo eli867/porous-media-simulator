@@ -8,39 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Upload, Play, AlertCircle, CheckCircle, Settings, BarChart3 } from 'lucide-react';
+import { Upload, Play, AlertCircle, CheckCircle, Settings } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { API_CONFIG, APP_CONFIG } from '@/lib/config';
-
-interface ApiResponse {
-  success: boolean;
-  data?: {
-    raw_csv?: string;
-    fullData?: Array<Record<string, string | number>>;
-    summary?: {
-      permeability: number;
-      continuityRMS: number;
-      porosity: number;
-      iterations: number;
-    };
-  };
-  error?: string;
-  message?: string;
-  details?: Record<string, unknown>;
-}
 
 export default function Dashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [rawCSV, setRawCSV] = useState<string | null>(null);
-  const [fullData, setFullData] = useState<Array<Record<string, string | number>> | null>(null);
-  const [summary, setSummary] = useState<{
-    permeability: number;
-    continuityRMS: number;
-    porosity: number;
-    iterations: number;
-  } | null>(null);
+  const [rawResult, setRawResult] = useState<string | null>(null);
+  const [resultData, setResultData] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   // Permeability parameters
@@ -53,7 +30,7 @@ export default function Dashboard() {
     if (file) {
       setSelectedFile(file);
       setError(null);
-      setRawCSV(null);
+      setRawResult(null);
       
       // Create preview URL
       const reader = new FileReader();
@@ -79,9 +56,8 @@ export default function Dashboard() {
     
     setIsProcessing(true);
     setError(null);
-    setRawCSV(null);
-    setFullData(null);
-    setSummary(null);
+    setRawResult(null);
+    setResultData(null);
     
     const formData = new FormData();
     formData.append('image', selectedFile);
@@ -98,15 +74,16 @@ export default function Dashboard() {
         body: formData,
       });
       
-      const data: ApiResponse = await response.json();
-      
-      if (data.success && data.data) {
-        if (data.data.raw_csv) setRawCSV(data.data.raw_csv);
-        if (data.data.fullData) setFullData(data.data.fullData);
-        if (data.data.summary) setSummary(data.data.summary);
-      } else {
-        setError(data.error || 'Simulation failed');
+      if (!response.ok) {
+        const errorText = await response.text();
+        setError(`Simulation failed: ${errorText}`);
+        return;
       }
+      
+      // Get JSON response
+      const data = await response.json();
+      setResultData(data);
+      
     } catch (err: unknown) {
       setError('Network error occurred');
       console.error('Error:', err);
@@ -115,21 +92,22 @@ export default function Dashboard() {
     }
   };
   
-  const formatNumber = (num: number | null | undefined, decimals = 6): string => {
-    if (num === null || num === undefined) return 'N/A';
-    return num.toExponential(decimals);
-  };
-  
   const handleReset = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
-    setRawCSV(null);
-    setFullData(null);
-    setSummary(null);
+    setRawResult(null);
+    setResultData(null);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+  
+  // Helper to safely render cell values
+  const renderCell = (val: unknown) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
   };
   
   return (
@@ -339,50 +317,34 @@ export default function Dashboard() {
               </Alert>
             )}
 
-            {/* Results Summary Display */}
-            {summary && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-blue-600" />
-                    Simulation Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><strong>Permeability:</strong> {formatNumber(summary.permeability)}</div>
-                    <div><strong>Porosity:</strong> {formatNumber(summary.porosity)}</div>
-                    <div><strong>Continuity RMS:</strong> {formatNumber(summary.continuityRMS)}</div>
-                    <div><strong>Iterations:</strong> {summary.iterations}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Results Table Display */}
-            {fullData && fullData.length > 0 && (
+            {/* Structured Results Display */}
+            {resultData && resultData.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <CheckCircle className="h-5 w-5 text-green-600" />
-                    Simulation Iteration Data
+                    Simulation Results
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full text-xs border">
+                    <table className="min-w-full text-xs border border-gray-300 dark:border-gray-700">
                       <thead>
                         <tr>
-                          {Object.keys(fullData[0]).map((key) => (
-                            <th key={key} className="px-2 py-1 border-b bg-gray-50 dark:bg-gray-800">{key}</th>
+                          {Object.keys(resultData[0]).map((key) => (
+                            <th key={key} className="px-2 py-1 border-b border-gray-200 dark:border-gray-700 text-left font-semibold">
+                              {key}
+                            </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {fullData.map((row, i) => (
-                          <tr key={i}>
-                            {Object.values(row).map((val, j) => (
-                              <td key={j} className="px-2 py-1 border-b text-center">{typeof val === 'number' ? formatNumber(val, 4) : val}</td>
+                        {resultData.map((row, idx) => (
+                          <tr key={idx}>
+                            {Object.values(row).map((val, i) => (
+                              <td key={i} className="px-2 py-1 border-b border-gray-100 dark:border-gray-800">
+                                {renderCell(val)}
+                              </td>
                             ))}
                           </tr>
                         ))}
@@ -393,21 +355,11 @@ export default function Dashboard() {
               </Card>
             )}
 
-            {/* Results Raw CSV Display (optional, for backward compatibility) */}
-            {rawCSV && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    Simulation Results (Raw CSV)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs">
-                    {rawCSV}
-                  </pre>
-                </CardContent>
-              </Card>
+            {/* Debug: Show raw resultData for troubleshooting */}
+            {resultData && (
+              <pre className="mt-4 p-2 bg-yellow-50 text-xs text-gray-700 border border-yellow-200 rounded">
+                {JSON.stringify(resultData, null, 2)}
+              </pre>
             )}
           </div>
         </div>

@@ -19,9 +19,12 @@ export async function POST(request: NextRequest) {
     railwayFormData.append('image', image);
     
     // Forward all other parameters to Railway API
+    console.log('Forwarding parameters to Railway API:');
     for (const [key, value] of formData.entries()) {
       if (key !== 'image') {
+        // Ensure value is treated as a string for FormData.append
         railwayFormData.append(key, value.toString());
+        console.log(`  ${key}: ${value}`);
       }
     }
     
@@ -39,59 +42,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const contentType = response.headers.get('content-type');
-    
-    // Handle JSON response from Railway API
-    if (contentType?.includes('application/json')) {
-      const jsonData = await response.json();
-      
-      // Check if simulation was successful
-      if (jsonData.exit_code !== 0) {
-        return NextResponse.json(
-          { 
-            error: 'Simulation failed', 
-            details: jsonData.stderr || 'Unknown error',
-            exit_code: jsonData.exit_code 
-          },
-          { status: 500 }
-        );
-      }
-      
-      // Process CSV data if available
-      if (jsonData.csv) {
-        const results = parseCSVResults(jsonData.csv);
-        
-        return NextResponse.json({
-          status: 'success',
-          data: results
-        });
-      } else {
-        return NextResponse.json(
-          { error: 'No CSV data in response' },
-          { status: 500 }
-        );
-      }
+    // Get the JSON response from Railway API
+    const railwayJson = await response.json();
+    if (!railwayJson.csv) {
+      return NextResponse.json(
+        { error: 'No CSV data found in Railway API response', details: railwayJson },
+        { status: 500 }
+      );
     }
-    
-    // Handle CSV response directly (fallback)
-    if (contentType?.includes('text/csv')) {
-      const csvData = await response.text();
-      
-      // Process CSV data
-      const results = parseCSVResults(csvData);
-      
-      return NextResponse.json({
-        status: 'success',
-        data: results
+
+    // Clean up CSV string (handle escaped newlines and quotes)
+    let csvData = railwayJson.csv
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\r/g, '\r');
+
+    // --- CSV to JSON parsing ---
+    function parseCSV(csv: string) {
+      const [headerLine, ...lines] = csv.trim().split(/\r?\n/);
+      const headers = headerLine.split(',');
+      return lines.map(line => {
+        // Handle quoted fields and commas inside quotes (simple version)
+        const values: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            values.push(current);
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current);
+        const obj: Record<string, string> = {};
+        headers.forEach((h, i) => {
+          obj[h.trim()] = (values[i] || '').trim();
+        });
+        return obj;
       });
     }
+
+    const jsonResult = parseCSV(csvData);
+    console.log('Parsed CSV result:', jsonResult);
+
+    // Return JSON result
+    return NextResponse.json(jsonResult, { status: 200 });
     
-    // If not JSON or CSV, return error
-    const text = await response.text();
-    return NextResponse.json(
-      { error: 'Unexpected response from Railway API', details: text },
-      { status: 500 }
-    );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
@@ -101,42 +101,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// CSV Parser and Transformer
-function parseCSVResults(csvData: string) {
-  const rows = csvData.trim().split('\n');
-  const headers = rows[0].split(',');
-  
-  const results = rows.slice(1).map(row => {
-    const values = row.split(',');
-    const entry: Record<string, string | number> = {};
-    
-    headers.forEach((header, index) => {
-      const value = values[index].trim();
-      
-      // Convert numeric values
-      if (['iter', 'K', 'R', 'alpha', 'mesh'].includes(header)) {
-        entry[header] = isNaN(parseFloat(value)) ? value : parseFloat(value);
-      } else {
-        entry[header] = value;
-      }
-    });
-    
-    return entry;
-  });
-  
-  // Extract key metrics
-  const finalResult = results[results.length - 1];
-  const porosityMatch = csvData.match(/Porosity = ([\d.]+)/);
-  
-  return {
-    fullData: results,
-    summary: {
-      permeability: finalResult.K,
-      continuityRMS: finalResult.R,
-      porosity: porosityMatch ? parseFloat(porosityMatch[1]) : null,
-      iterations: results.length
-    }
-  };
-}
-
 // GET method unchanged...
+
