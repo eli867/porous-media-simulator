@@ -1,6 +1,6 @@
 {
   "functions": {
-    "src/app/api/process-image/route.ts": {
+    "src/app/api/simulate/route.ts": {
       "maxDuration": 60
     }
   },

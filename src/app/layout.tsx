@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fluid Permeability Simulator",
-  description: "Advanced fluid permeability analysis through porous media simulation",
+  title: "Porous Media Simulator",
+  description: "Advanced permeability analysis through C++ backend",
 };
 
 export default function RootLayout({

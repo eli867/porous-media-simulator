@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Clean up CSV string (handle escaped newlines and quotes)
-    let csvData = railwayJson.csv
+    const csvData = railwayJson.csv
       .replace(/\\n/g, '\n')
       .replace(/\\"/g, '"')
       .replace(/\\r/g, '\r');
@@ -89,6 +89,13 @@ export async function POST(request: NextRequest) {
     const jsonResult = parseCSV(csvData);
     console.log('Parsed CSV result:', jsonResult);
 
+    // Patch: Add porosity field if present in Railway API response
+    if (typeof railwayJson.porosity !== 'undefined') {
+      jsonResult.forEach(obj => {
+        obj.porosity = railwayJson.porosity;
+      });
+    }
+
     // Return JSON result
     return NextResponse.json(jsonResult, { status: 200 });
     
@@ -100,6 +107,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// GET method unchanged...
-
