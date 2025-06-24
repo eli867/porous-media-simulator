@@ -186,7 +186,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- **Fluid Permeability**: Check out the C++ repository "https://github.com/adama-wzr/PixelBasedPermeability"
+- **Fluid Permeability**: Check out the C++ repository https://github.com/adama-wzr/PixelBasedPermeability
 - **UI Components**: Built with Next.js, React, and shadcn/ui
 - **Animations**: Powered by Framer Motion
 - **Deployment**: Railway for backend, Vercel for frontend
