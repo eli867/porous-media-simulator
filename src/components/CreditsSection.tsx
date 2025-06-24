@@ -97,8 +97,9 @@ const CreditsSection = () => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={mounted ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="backdrop-blur-sm border rounded-2xl border-gray-500/50">
-          <div className="p-6">
+          className="backdrop-blur-sm border rounded-2xl border-gray-500/50 relative overflow-hidden"
+        >
+          <div className="p-6 pb-14">
             <div className="space-x-4 flex flex-row gap-4">
               <div className="flex items-start gap-3">
                 <div>
@@ -119,6 +120,10 @@ const CreditsSection = () => {
                 </div>
               </div>
             </div>
+          </div>
+          <div className="absolute bottom-4 left-0 w-full flex justify-center gap-4 px-6">
+            <a href="https://github.com/adama-wzr/PixelBasedPermeability/tree/main" className="text-blue-400 hover:underline text-sm truncate" target="_blank" rel="noopener noreferrer">https://github.com/adama-wzr/PixelBasedPermeability/tree/main</a>
+            <a href="https://github.com/eli867/porous-media-simulator" className="text-blue-400 hover:underline text-sm truncate" target="_blank" rel="noopener noreferrer">https://github.com/eli867/porous-media-simulator</a>
           </div>
         </motion.div>
 
