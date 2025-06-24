@@ -3,7 +3,7 @@ import { LavaLamp } from "@/components/fluid-blob";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useRef, useCallback, useState } from "react";
 import ComputerComponent from "@/components/ComputerComponent";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, RotateCcw } from "lucide-react";
 import CommandsSection from "@/components/CommandsSection";
 import CreditsSection from "@/components/CreditsSection";
 
@@ -89,6 +89,14 @@ export default function DemoOne() {
     }, 100);
   };
 
+  // Handler to replay the animation and tool
+  const handleReplay = () => {
+    setShowNextSection(false);
+    setIsCovered(false);
+    setCurrentSection(0);
+    animate(progress, 0, { duration: 0.2 });
+  };
+
   // Always lock scroll during transitions
   const containerClass = `relative bg-white min-h-screen w-full overflow-hidden`;
 
@@ -154,6 +162,15 @@ export default function DemoOne() {
                   <span className="w-3 h-3 bg-yellow-500 rounded-full inline-block"></span>
                   <span className="w-3 h-3 bg-green-500 rounded-full inline-block"></span>
                   <span className="ml-4 text-zinc-400 text-xs">permeability-simulator@user:~</span>
+                  <button
+                    onClick={handleReplay}
+                    className="ml-auto p-1 text-zinc-400 hover:text-green-400 transition-colors"
+                    title="Replay tool"
+                    aria-label="Replay tool"
+                    style={{ background: 'none', border: 'none', outline: 'none', cursor: 'pointer' }}
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                  </button>
                 </div>
                 <div className="flex-1 w-full bg-black rounded-b-2xl px-4 py-8 text-green-400 text-lg overflow-y-auto">
                   <div className="min-h-[1.5em]">&gt; Welcome to the Permeability Simulator!</div>
@@ -203,7 +220,7 @@ export default function DemoOne() {
 
       {showNextSection && currentSection !== 3 && (
         <div className="w-full flex justify-center items-end fixed bottom-0 left-0 z-50 pointer-events-none">
-          <ChevronDown className="h-12 w-12 text-gray-400 dark:text-gray-600 animate-bounce" strokeWidth={2.5} />
+          <ChevronDown className="h-12 w-12 text-gray-400 animate-bounce" strokeWidth={2.5} />
         </div>
       )}
     </div>

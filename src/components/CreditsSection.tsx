@@ -39,25 +39,26 @@ function useInView(options: IntersectionObserverInit = {}): [React.RefObject<HTM
 }
 
 // Background icons with random positions and animations
+const iconColor = '#e5e7eb'; // Tailwind's gray-200
 const backgroundIcons = [
-  { icon: <SiRailway size={48} />, x: '10%', y: '15%', delay: 0 },
-  { icon: <SiTailwindcss size={44} />, x: '85%', y: '25%', delay: 0.2 },
-  { icon: <SiVercel size={46} />, x: '20%', y: '75%', delay: 0.4 },
-  { icon: <SiCplusplus size={42} />, x: '75%', y: '80%', delay: 0.6 },
-  { icon: <SiNextdotjs size={50} />, x: '5%', y: '50%', delay: 0.8 },
-  { icon: <SiReact size={46} />, x: '90%', y: '60%', delay: 1.0 },
-  { icon: <SiFramer size={44} />, x: '50%', y: '10%', delay: 1.2 },
-  { icon: <SiRailway size={40} />, x: '60%', y: '90%', delay: 1.4 },
-  { icon: <SiTailwindcss size={48} />, x: '15%', y: '85%', delay: 1.6 },
-  { icon: <SiVercel size={42} />, x: '80%', y: '40%', delay: 1.8 },
-  { icon: <SiCplusplus size={46} />, x: '40%', y: '25%', delay: 2.0 },
-  { icon: <SiNextdotjs size={44} />, x: '70%', y: '70%', delay: 2.2 },
-  { icon: <SiReact size={40} />, x: '25%', y: '35%', delay: 2.4 },
-  { icon: <SiFramer size={48} />, x: '95%', y: '15%', delay: 2.6 },
-  { icon: <SiNodedotjs size={45} />, x: '30%', y: '65%', delay: 2.8 },
-  { icon: <SiTypescript size={43} />, x: '70%', y: '30%', delay: 3.0 },
-  { icon: <SiNodedotjs size={41} />, x: '85%', y: '85%', delay: 3.2 },
-  { icon: <SiTypescript size={47} />, x: '45%', y: '75%', delay: 3.4 },
+  { icon: <SiRailway size={48} color={iconColor} />, x: '10%', y: '15%', delay: 0 },
+  { icon: <SiTailwindcss size={44} color={iconColor} />, x: '85%', y: '25%', delay: 0.2 },
+  { icon: <SiVercel size={46} color={iconColor} />, x: '20%', y: '75%', delay: 0.4 },
+  { icon: <SiCplusplus size={42} color={iconColor} />, x: '75%', y: '80%', delay: 0.6 },
+  { icon: <SiNextdotjs size={50} color={iconColor} />, x: '5%', y: '50%', delay: 0.8 },
+  { icon: <SiReact size={46} color={iconColor} />, x: '90%', y: '60%', delay: 1.0 },
+  { icon: <SiFramer size={44} color={iconColor} />, x: '50%', y: '10%', delay: 1.2 },
+  { icon: <SiRailway size={40} color={iconColor} />, x: '60%', y: '90%', delay: 1.4 },
+  { icon: <SiTailwindcss size={48} color={iconColor} />, x: '15%', y: '85%', delay: 1.6 },
+  { icon: <SiVercel size={42} color={iconColor} />, x: '80%', y: '40%', delay: 1.8 },
+  { icon: <SiCplusplus size={46} color={iconColor} />, x: '40%', y: '25%', delay: 2.0 },
+  { icon: <SiNextdotjs size={44} color={iconColor} />, x: '70%', y: '70%', delay: 2.2 },
+  { icon: <SiReact size={40} color={iconColor} />, x: '25%', y: '35%', delay: 2.4 },
+  { icon: <SiFramer size={48} color={iconColor} />, x: '95%', y: '15%', delay: 2.6 },
+  { icon: <SiNodedotjs size={45} color={iconColor} />, x: '30%', y: '65%', delay: 2.8 },
+  { icon: <SiTypescript size={43} color={iconColor} />, x: '70%', y: '30%', delay: 3.0 },
+  { icon: <SiNodedotjs size={41} color={iconColor} />, x: '85%', y: '85%', delay: 3.2 },
+  { icon: <SiTypescript size={47} color={iconColor} />, x: '45%', y: '75%', delay: 3.4 },
 ];
 
 const CreditsSection = () => {
@@ -96,7 +97,7 @@ const CreditsSection = () => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={mounted ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="backdrop-blur-sm border rounded-2xl">
+          className="backdrop-blur-sm border rounded-2xl border-gray-500/50">
           <div className="p-6">
             <div className="space-x-4 flex flex-row gap-4">
               <div className="flex items-start gap-3">
@@ -126,7 +127,7 @@ const CreditsSection = () => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={mounted ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="backdrop-blur-sm border rounded-2xl"
+          className="backdrop-blur-sm border rounded-2xl border-gray-500/50"
         >
           <div className="text-center p-6">
             <div className="grid grid-cols-3 gap-4">

@@ -10,7 +10,7 @@ interface ComputerComponentProps {
 const lines = [
   "Welcome to the Permeability Simulator!",
   "",
-  "To begin, upload a PNG image of your porous medium.",
+  "To begin, upload an image of your porous medium.",
   "The image should be black and white, where white is fluid and black is solid.",
   "There must be at least one clear channel of black from left to right.",
   "Recommended size: at least 128x128 pixels."
@@ -52,6 +52,22 @@ const ComputerComponent = ({ y, isCovered, onContinue }: ComputerComponentProps)
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [canContinue, setCanContinue] = useState(false);
+
+  // Secret shortcut to skip animations
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Shift+S to skip animations
+      if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        setDisplayedLines(lines);
+        setShowUpload(true);
+        setReadyToType(false); // Stop the typing animation
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!readyToType) return;
@@ -207,12 +223,12 @@ const ComputerComponent = ({ y, isCovered, onContinue }: ComputerComponentProps)
             className="mt-8 flex flex-col items-start gap-4"
           >
             <label className="text-green-300 text-base" htmlFor="image-upload">
-              Select your PNG image:
+              Select your image:
             </label>
             <input
               id="image-upload"
               type="file"
-              accept="image/png"
+              accept="image/*"
               className="bg-zinc-800 text-green-200 rounded px-3 py-2 border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-400"
               onChange={handleFileChange}
             />
