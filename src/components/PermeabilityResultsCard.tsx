@@ -9,20 +9,32 @@ const PermeabilityResultsCard: React.FC<PermeabilityResultsCardProps> = ({ resul
     return null;
   }
 
-  const firstResult = results[0];
-
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <h3 className="text-lg font-semibold mb-4 text-gray-900">
         Permeability Results
       </h3>
-      <div className="space-y-2">
-        {Object.entries(firstResult).map(([key, value]) => (
-          <div key={key} className="flex justify-between">
-            <span className="text-gray-600 capitalize">{key.replace(/_/g, ' ')}:</span>
-            <span className="text-gray-900 font-mono">{String(value)}</span>
-          </div>
-        ))}
+      <div className="overflow-x-auto">
+        <table className="min-w-full border text-sm">
+          <thead>
+            <tr>
+              <th className="border px-2 py-1 bg-zinc-100">Iteration</th>
+              {Object.keys(results[0]).map((key) => (
+                <th key={key} className="border px-2 py-1 bg-zinc-100 capitalize">{key.replace(/_/g, ' ')}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((result, idx) => (
+              <tr key={idx} className="even:bg-zinc-50">
+                <td className="border px-2 py-1 font-mono text-xs text-center">{idx + 1}</td>
+                {Object.keys(results[0]).map((key) => (
+                  <td key={key} className="border px-2 py-1 font-mono text-xs text-right">{String(result[key])}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
