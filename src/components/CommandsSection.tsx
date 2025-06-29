@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Copy, Check } from 'lucide-react';
 import { FaWindows, FaApple, FaLinux } from 'react-icons/fa';
@@ -88,7 +87,7 @@ const CommandsSection = () => {
       <footer className="mt-10 pt-6 border-t border-zinc-200 text-center text-zinc-500 text-xs">
         <div>
           <span className="font-semibold">How to cite:</span> If you use this tool in your research, please cite our API and this software. <br />
-          <span className="italic">"Fluid Permeability Simulator, 2024. https://porous-media-predictor-production.up.railway.app"</span>
+          <span className="italic">&quot;Fluid Permeability Simulator, 2024. https://porous-media-predictor-production.up.railway.app&quot;</span>
         </div>
       </footer>
     </section>

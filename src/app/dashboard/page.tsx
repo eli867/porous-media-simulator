@@ -19,7 +19,7 @@ const defaultParams = {
 export default function CommandsPage() {
   const [params, setParams] = useState({ ...defaultParams });
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<any[]>([]);
+  const [result, setResult] = useState<Record<string, unknown>[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
